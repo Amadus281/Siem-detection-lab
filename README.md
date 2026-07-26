@@ -109,3 +109,5 @@ Log analysis and alert triage
 MITRE ATT&CK framework mapping
 Security Configuration Assessment (SCA) / compliance control review
 Independent verification of automated alerts (avoiding blind trust in tooling)
+
+BY ALHAJI AMADU SALL

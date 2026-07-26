@@ -21,11 +21,10 @@ Four categories of activity were generated across two monitored endpoints to val
 1. Privilege Escalation Detection (Sudo Execution)
 
 Executed privileged commands on the endpoint:
-```bash
+
 sudo touch /etc/testfile123
 sudo rm /etc/testfile123
 sudo whoami
-```
 
 Result: Wazuh detected the sudo execution and generated an alert automatically mapped to the MITRE ATT&CK framework.
 
@@ -51,10 +50,10 @@ Wazuh's rootcheck module, running independently as part of its default scan sche
 | Finding | Port 55555 (tcp) hidden — potential kernel-level rootkit or trojaned netstat |
 
 Investigation: Verified the finding using lsof:
-```bash
+
 lsof -i :55555
 sudo lsof -i :55555
-```
+
 Both commands returned no active process bound to the port, indicating the anomaly was caused by a transient process rather than a persistent rootkit or backdoor.
 
 Conclusion: Assessed as a false positive. No further remediation required. This demonstrates a full alert-triage workflow — detect, investigate, verify, conclude — rather than passively accepting an alert at face value.
@@ -98,4 +97,15 @@ Limitations / Future Work
 
 The initial SSH brute-force attempt on the macOS endpoint did not surface as expected, since macOS handles authentication logging differently than Linux (/var/log/auth.log) and would require custom log source configuration or unified logging integration to capture reliably. This was resolved by adding a dedicated Linux endpoint instead.
 
-Future iterations could include: writing a
+Future iterations could include: writing a custom detection rule from scratch, configuring Wazuh active response to automatically block a brute-forcing IP, and integrating a threat intelligence feed.
+
+Skills Demonstrated
+
+Cloud SIEM deployment and configuration (Wazuh Cloud)
+Multi-platform endpoint agent deployment and management (macOS, Linux/AWS EC2)
+Cloud infrastructure provisioning (AWS EC2, security groups, key-pair auth)
+Linux system administration and SSH/sshd configuration troubleshooting
+Log analysis and alert triage
+MITRE ATT&CK framework mapping
+Security Configuration Assessment (SCA) / compliance control review
+Independent verification of automated alerts (avoiding blind trust in tooling)

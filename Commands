@@ -1,0 +1,118 @@
+Command Reference — SIEM Detection Lab
+
+A chronological log of every command used to build and test this project.
+Replace <placeholder> values with your own if reproducing this lab 
+
+
+1. macOS Agent — Install & Register
+
+Download and install the Wazuh agent, registering it to the manager:
+
+curl -so wazuh-agent.pkg https://packages.wazuh.com/4.x/macos/wazuh-agent-4.14.6-1.arm64.pkg && echo "WAZUH_MANAGER='<your-manager-address>.cloud.wazuh.com' WAZUH_AGENT_NAME='<agent-name>' WAZUH_REGISTRATION_PASSWORD='<registration-password>'" > /tmp/wazuh_envs && sudo installer -pkg ./wazuh-agent.pkg -target /
+
+Load the agent as a launch daemon:
+
+sudo launchctl load /Library/LaunchDaemons/com.wazuh.agent.plist
+
+2. macOS Detection Tests
+
+Test 1: SSH brute-force attempt (required enabling Remote Login in System Settings > General > Sharing first):
+
+ssh fakeuser@localhost
+(entered wrong password 3-5 times)
+
+Test 2: Sudo / privilege escalation event:
+
+sudo touch /etc/testfile123
+sudo rm /etc/testfile123
+sudo whoami
+
+Test 3: File Integrity Monitoring (FIM):
+
+touch ~/Desktop/testfile_fim.txt
+echo "test content" >> ~/Desktop/testfile_fim.txt
+rm ~/Desktop/testfile_fim.txt
+
+Investigating a rootcheck "hidden port" anomaly alert:
+
+lsof -i :55555
+sudo lsof -i :55555
+
+3. AWS EC2 — Connect to the Linux Target
+
+Navigate to the downloaded key pair and lock down permissions:
+
+cd ~/Downloads
+chmod 400 siem-lab-key.pem
+
+SSH into the new Ubuntu instance:
+
+ssh -i siem-lab-key.pem ubuntu@<ec2-public-ip>
+
+Update the system:
+
+sudo apt update
+sudo apt upgrade -y
+
+4. Linux Agent — Install & Register
+
+Download and install the Wazuh agent (.deb):
+
+curl -so wazuh-agent.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.14.6-1_amd64.deb && sudo WAZUH_MANAGER='<your-manager-address>.cloud.wazuh.com' WAZUH_AGENT_NAME='<agent-name>' dpkg -i ./wazuh-agent.deb
+
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent
+sudo systemctl status wazuh-agent
+
+Check the agent log for registration errors:
+
+sudo tail -50 /var/ossec/logs/ossec.log
+
+Fixing a failed registration (missing password):
+
+sudo /var/ossec/bin/agent-auth -m <your-manager-address>.cloud.wazuh.com -P '<registration-password>'
+sudo systemctl restart wazuh-agent
+
+Confirm it worked:
+
+sudo tail -20 /var/ossec/logs/ossec.log
+
+5. SSH Brute-Force Test — Troubleshooting & Execution
+
+Initial attempt failed instantly (password auth disabled by default on AWS Ubuntu):
+
+ssh fakeuser@<ec2-public-ip>
+(result: Permission denied (publickey))
+
+Reconnect to the instance to fix SSH config:
+
+ssh -i siem-lab-key.pem ubuntu@<ec2-public-ip>
+
+sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+sudo passwd ubuntu (set a test password for the ubuntu user)
+
+Still failed — checked for a config override:
+
+sudo grep -r "PasswordAuthentication" /etc/ssh/
+(found: /etc/ssh/sshd_config.d/60-cloudimg-settings.conf:PasswordAuthentication no)
+
+Fixed the override file specifically:
+
+sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+sudo systemctl restart ssh
+
+Verified the fix:
+
+sudo grep -r "PasswordAuthentication" /etc/ssh/
+(all entries now show "yes")
+
+exit
+
+From the Mac — the actual brute-force simulation:
+
+ssh fakeuser@<ec2-public-ip>
+(entered wrong password 3+ times)
+Result: Wazuh correctly escalated this to a high-severity alert (rule level 10, MITRE ATT&CK T1110 - Brute Force)
